@@ -143,22 +143,6 @@ class ConfigurationParser:
             match_dir_func = re(conf.match_dir + '$').match
             return match_func, match_dir_func
 
-        # def _is_excluded(path, exclude):
-        #     """Return True if path maches any of the `exclude` patterns."""
-        #     cache_key = "exclude_patterns"
-        #     patterns = self._cache.get(cache_key)
-        #     if patterns is None:
-        #         patterns = [
-        #             p.strip() for p in exclude.split(',') if p.strip()
-        #         ]
-        #         self._cache[cache_key] = patterns
-
-        #     for pattern in patterns:
-        #         if re(pattern).match(path):
-        #             return True
-
-        #     return False
-
         def _get_ignore_decorators(conf):
             """Return the `ignore_decorators` as None or regex."""
             return (re(conf.ignore_decorators) if conf.ignore_decorators
@@ -178,14 +162,10 @@ class ConfigurationParser:
                     for filename in filenames:
                         if match(filename):
                             full_path = os.path.join(root, filename)
-                        # if _is_excluded(full_path, exclude=config.exclude):
                             if any(
                                 e.match(full_path) for e in excludes
                             ):
-                                log.info(
-                                    'Skipping file as excluded: %s',
-                                    full_path
-                                )
+                                log.info('Excluding file %s', full_path)
                                 continue
                             yield (full_path, list(config.checked_codes),
                                    ignore_decorators)
