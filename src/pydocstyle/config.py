@@ -8,7 +8,7 @@ from collections.abc import Set
 from re import compile as re
 from configparser import RawConfigParser
 
-from .utils import __version__, log
+from .utils import __version__, get_regexps_from_config_str, log
 from .violations import ErrorRegistry, conventions
 
 
@@ -143,21 +143,21 @@ class ConfigurationParser:
             match_dir_func = re(conf.match_dir + '$').match
             return match_func, match_dir_func
 
-        def _is_excluded(path, exclude):
-            """Return True if path maches any of the `exclude` patterns."""
-            cache_key = "exclude_patterns"
-            patterns = self._cache.get(cache_key)
-            if patterns is None:
-                patterns = [
-                    p.strip() for p in exclude.split(',') if p.strip()
-                ]
-                self._cache[cache_key] = patterns
+        # def _is_excluded(path, exclude):
+        #     """Return True if path maches any of the `exclude` patterns."""
+        #     cache_key = "exclude_patterns"
+        #     patterns = self._cache.get(cache_key)
+        #     if patterns is None:
+        #         patterns = [
+        #             p.strip() for p in exclude.split(',') if p.strip()
+        #         ]
+        #         self._cache[cache_key] = patterns
 
-            for pattern in patterns:
-                if re(pattern).match(path):
-                    return True
+        #     for pattern in patterns:
+        #         if re(pattern).match(path):
+        #             return True
 
-            return False
+        #     return False
 
         def _get_ignore_decorators(conf):
             """Return the `ignore_decorators` as None or regex."""
@@ -168,6 +168,7 @@ class ConfigurationParser:
             if os.path.isdir(name):
                 for root, dirs, filenames in os.walk(name):
                     config = self._get_config(os.path.abspath(root))
+                    excludes = get_regexps_from_config_str(config.exclude)
                     match, match_dir = _get_matches(config)
                     ignore_decorators = _get_ignore_decorators(config)
 
@@ -177,8 +178,11 @@ class ConfigurationParser:
                     for filename in filenames:
                         if match(filename):
                             full_path = os.path.join(root, filename)
-                            if _is_excluded(full_path, exclude=config.exclude):
-                                log.debug(
+                        # if _is_excluded(full_path, exclude=config.exclude):
+                            if any(
+                                e.match(full_path) for e in excludes
+                            ):
+                                log.info(
                                     'Skipping file as excluded: %s',
                                     full_path
                                 )

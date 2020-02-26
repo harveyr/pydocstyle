@@ -48,3 +48,15 @@ def common_prefix_length(a: str, b: str) -> int:
 def strip_non_alphanumeric(string: str) -> str:
     """Strip string from any non-alphanumeric characters."""
     return NON_ALPHANUMERIC_STRIP_RE.sub('', string)
+
+
+def get_regexps_from_config_str(config_str):
+    """Returns list of compiled regexps from the config string.
+
+    Assumes config string is comma-separated patterns, possibly with line
+    breaks.
+    """
+    patterns = [
+        p.strip() for p in config_str.split(',') if p.strip()
+    ]
+    return [re.compile(p) for p in patterns]
