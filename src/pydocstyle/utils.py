@@ -50,13 +50,32 @@ def strip_non_alphanumeric(string: str) -> str:
     return NON_ALPHANUMERIC_STRIP_RE.sub('', string)
 
 
+def tokenize(s):
+    """Tokenizes a config string by splitting on commas and newlines.
+
+    Returns a list of strings.
+    """
+    result = []
+    lines = s.splitlines()
+    for line in lines:
+        result += [t.strip() for t in line.split(',') if t.strip()]
+
+    return result
+
+
 def get_regexps_from_config_str(config_str):
     """Returns list of compiled regexps from the config string.
 
     Assumes config string is comma-separated patterns, possibly with line
     breaks.
     """
-    patterns = [
-        p.strip() for p in config_str.split(',') if p.strip()
-    ]
+    patterns = tokenize(config_str)
     return [re.compile(p) for p in patterns]
+
+
+def is_match(filepath, regexps):
+    """Returns True if any of the file paths match the given regexps.
+
+    Just a one-liner, broken out for testing.
+    """
+    return any(e.match(filepath) for e in regexps)

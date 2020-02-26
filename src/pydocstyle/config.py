@@ -8,7 +8,7 @@ from collections.abc import Set
 from re import compile as re
 from configparser import RawConfigParser
 
-from .utils import __version__, get_regexps_from_config_str, log
+from .utils import __version__, get_regexps_from_config_str, is_match, log
 from .violations import ErrorRegistry, conventions
 
 
@@ -162,9 +162,7 @@ class ConfigurationParser:
                     for filename in filenames:
                         if match(filename):
                             full_path = os.path.join(root, filename)
-                            if any(
-                                e.match(full_path) for e in excludes
-                            ):
+                            if is_match(full_path, regexps=excludes):
                                 log.info('Excluding file %s', full_path)
                                 continue
                             yield (full_path, list(config.checked_codes),
