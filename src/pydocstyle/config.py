@@ -12,6 +12,9 @@ from .utils import __version__, log
 from .violations import ErrorRegistry, conventions
 
 
+CONFIG_RE_KEYS = ('match', 'match_dir', 'exclude', 'ignore_decorators')
+
+
 def check_initialized(method):
     """Check that the configuration object was initialized."""
     def _decorator(self, *args, **kwargs):
@@ -31,7 +34,7 @@ class ConfigurationParser:
     ------------------
     Responsible for deciding things that are related to the user interface and
     configuration discovery, e.g. verbosity, debug options, etc.
-    All run configurations default to `False` or `None` and are decided only 
+    All run configurations default to `False` or `None` and are decided only
     by CLI.
 
     Check Configurations:
@@ -60,12 +63,13 @@ class ConfigurationParser:
     """
 
     CONFIG_FILE_OPTIONS = ('convention', 'select', 'ignore', 'add-select',
-                           'add-ignore', 'match', 'match-dir',
+                           'add-ignore', 'match', 'match-dir', 'exclude',
                            'ignore-decorators')
     BASE_ERROR_SELECTION_OPTIONS = ('ignore', 'select', 'convention')
 
     DEFAULT_MATCH_RE = r'(?!test_).*\.py'
     DEFAULT_MATCH_DIR_RE = r'[^\.].*'
+    DEFAULT_EXCLUDE_RE = ''
     DEFAULT_IGNORE_DECORATORS_RE = ''
     DEFAULT_CONVENTION = conventions.pep257
 
@@ -139,6 +143,22 @@ class ConfigurationParser:
             match_dir_func = re(conf.match_dir + '$').match
             return match_func, match_dir_func
 
+        def _is_excluded(path, exclude):
+            """Return True if path maches any of the `exclude` patterns."""
+            cache_key = "exclude_patterns"
+            patterns = self._cache.get(cache_key)
+            if patterns is None:
+                patterns = [
+                    p.strip() for p in exclude.split(',') if p.strip()
+                ]
+                self._cache[cache_key] = patterns
+
+            for pattern in patterns:
+                if re(pattern).match(path):
+                    return True
+
+            return False
+
         def _get_ignore_decorators(conf):
             """Return the `ignore_decorators` as None or regex."""
             return (re(conf.ignore_decorators) if conf.ignore_decorators
@@ -157,6 +177,12 @@ class ConfigurationParser:
                     for filename in filenames:
                         if match(filename):
                             full_path = os.path.join(root, filename)
+                            if _is_excluded(full_path, exclude=config.exclude):
+                                log.debug(
+                                    'Skipping file as excluded: %s',
+                                    full_path
+                                )
+                                continue
                             yield (full_path, list(config.checked_codes),
                                    ignore_decorators)
             else:
@@ -170,14 +196,14 @@ class ConfigurationParser:
 
     def _get_config_by_discovery(self, node):
         """Get a configuration for checking `node` by config discovery.
-        
+
         Config discovery happens when no explicit config file is specified. The
         file system is searched for config files starting from the directory
         containing the file being checked, and up until the root directory of
         the project.
-        
+
         See `_get_config` for further details.
-        
+
         """
         path = self._get_node_dir(node)
 
@@ -355,7 +381,7 @@ class ConfigurationParser:
         self._set_add_options(error_codes, child_options)
 
         kwargs = dict(checked_codes=error_codes)
-        for key in ('match', 'match_dir', 'ignore_decorators'):
+        for key in CONFIG_RE_KEYS:
             kwargs[key] = \
                 getattr(child_options, key) or getattr(parent_config, key)
         return CheckConfiguration(**kwargs)
@@ -387,7 +413,7 @@ class ConfigurationParser:
             checked_codes = cls._get_checked_errors(options)
 
         kwargs = dict(checked_codes=checked_codes)
-        for key in ('match', 'match_dir', 'ignore_decorators'):
+        for key in CONFIG_RE_KEYS:
             kwargs[key] = getattr(cls, 'DEFAULT_{}_RE'.format(key.upper())) \
                 if getattr(options, key) is None and use_defaults \
                 else getattr(options, key)
@@ -623,6 +649,8 @@ class ConfigurationParser:
                      "expression; default is --match-dir='{}', which "
                      "matches all dirs that don't start with "
                      "a dot").format(cls.DEFAULT_MATCH_DIR_RE))
+        option('--exclude', metavar='<pattern>', default=None,
+               help="exclude <pattern> when matching files")
 
         # Decorators
         option('--ignore-decorators', metavar='<decorators>', default=None,
@@ -638,7 +666,7 @@ class ConfigurationParser:
 # Check configuration - used by the ConfigurationParser class.
 CheckConfiguration = namedtuple('CheckConfiguration',
                                 ('checked_codes', 'match', 'match_dir',
-                                 'ignore_decorators'))
+                                 'exclude', 'ignore_decorators'))
 
 
 class IllegalConfiguration(Exception):
